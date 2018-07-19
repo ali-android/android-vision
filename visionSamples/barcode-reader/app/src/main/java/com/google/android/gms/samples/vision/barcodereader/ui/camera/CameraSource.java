@@ -35,6 +35,7 @@ import android.view.SurfaceView;
 import android.view.WindowManager;
 
 import com.google.android.gms.common.images.Size;
+import com.google.android.gms.samples.vision.barcodereader.CameraPermissionDeniedException;
 import com.google.android.gms.vision.Detector;
 import com.google.android.gms.vision.Frame;
 
@@ -333,7 +334,7 @@ public class CameraSource {
      * @throws IOException if the camera's preview texture or display could not be initialized
      */
     @RequiresPermission(Manifest.permission.CAMERA)
-    public CameraSource start() throws IOException {
+    public CameraSource start() throws IOException, SecurityException {
         synchronized (mCameraLock) {
             if (mCamera != null) {
                 return this;
@@ -367,7 +368,7 @@ public class CameraSource {
      * @throws IOException if the supplied surface holder could not be used as the preview display
      */
     @RequiresPermission(Manifest.permission.CAMERA)
-    public CameraSource start(SurfaceHolder surfaceHolder) throws IOException {
+    public CameraSource start(SurfaceHolder surfaceHolder) throws IOException, SecurityException {
         synchronized (mCameraLock) {
             if (mCamera != null) {
                 return this;
@@ -739,12 +740,19 @@ public class CameraSource {
      * @throws RuntimeException if the method fails
      */
     @SuppressLint("InlinedApi")
-    private Camera createCamera() {
+    private Camera createCamera() throws CameraPermissionDeniedException {
         int requestedCameraId = getIdForRequestedCamera(mFacing);
         if (requestedCameraId == -1) {
             throw new RuntimeException("Could not find requested camera.");
         }
-        Camera camera = Camera.open(requestedCameraId);
+        Camera camera = null;
+        try {
+            camera = Camera.open(requestedCameraId);
+        } catch (RuntimeException e) {
+            //This is to handle use cases where some OEM have introduced Runtime permission model,
+            //in OS below Marshmallow, and user denies the permission. Example "Oppo phone" with Lollipop.
+            throw new CameraPermissionDeniedException("Did not accepted the required permission.");
+        }
 
         SizePair sizePair = selectSizePair(camera, mRequestedPreviewWidth, mRequestedPreviewHeight);
         if (sizePair == null) {

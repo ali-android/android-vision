@@ -26,6 +26,7 @@ import android.view.SurfaceView;
 import android.view.ViewGroup;
 
 import com.google.android.gms.common.images.Size;
+import com.google.android.gms.samples.vision.barcodereader.CameraPermissionDeniedException;
 
 import java.io.IOException;
 
@@ -38,13 +39,31 @@ public class CameraSourcePreview extends ViewGroup {
     private boolean mSurfaceAvailable;
     private CameraSource mCameraSource;
 
+
     private GraphicOverlay mOverlay;
+
+    private CameraPermissionRejectedListener mCameraPermissionRejectedListener;
+    private boolean mCameraPermissionBelowMarshmallow;
+
+    public interface CameraPermissionRejectedListener {
+        void onCameraPermissionRejectedInOSLowerThanMarshmallow();
+    }
+
+    public void registerForCameraPermissionListener(CameraPermissionRejectedListener cameraPermissionRejectedListener) {
+        this.mCameraPermissionRejectedListener = cameraPermissionRejectedListener;
+    }
+
+    public void unRegisterForCameraPermissionListener() {
+        mCameraPermissionRejectedListener = null;
+    }
+
 
     public CameraSourcePreview(Context context, AttributeSet attrs) {
         super(context, attrs);
         mContext = context;
         mStartRequested = false;
         mSurfaceAvailable = false;
+        mCameraPermissionBelowMarshmallow = true;
 
         mSurfaceView = new SurfaceView(context);
         mSurfaceView.getHolder().addCallback(new SurfaceCallback());
@@ -111,7 +130,12 @@ public class CameraSourcePreview extends ViewGroup {
             mSurfaceAvailable = true;
             try {
                 startIfReady();
-            } catch (SecurityException se) {
+            }
+            catch (CameraPermissionDeniedException cpe) {
+                mCameraPermissionBelowMarshmallow = false;
+                mCameraPermissionRejectedListener.onCameraPermissionRejectedInOSLowerThanMarshmallow();
+            }
+            catch (SecurityException se) {
                 Log.e(TAG,"Do not have permission to start the camera", se);
             } catch (IOException e) {
                 Log.e(TAG, "Could not start camera source.", e);
@@ -166,9 +190,14 @@ public class CameraSourcePreview extends ViewGroup {
         }
 
         try {
-            startIfReady();
+            if(mCameraPermissionBelowMarshmallow){
+                startIfReady();
+            }
+        } catch (CameraPermissionDeniedException cpe) {
+            mCameraPermissionBelowMarshmallow = false;
+            mCameraPermissionRejectedListener.onCameraPermissionRejectedInOSLowerThanMarshmallow();
         } catch (SecurityException se) {
-            Log.e(TAG,"Do not have permission to start the camera", se);
+            Log.e(TAG, "Do not have permission to start the camera", se);
         } catch (IOException e) {
             Log.e(TAG, "Could not start camera source.", e);
         }

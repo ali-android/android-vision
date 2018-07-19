@@ -57,7 +57,7 @@ import java.io.IOException;
  * rear facing camera. During detection overlay graphics are drawn to indicate the position,
  * size, and ID of each barcode.
  */
-public final class BarcodeCaptureActivity extends AppCompatActivity implements BarcodeGraphicTracker.BarcodeUpdateListener {
+public final class BarcodeCaptureActivity extends AppCompatActivity implements BarcodeGraphicTracker.BarcodeUpdateListener, CameraSourcePreview.CameraPermissionRejectedListener {
     private static final String TAG = "Barcode-reader";
 
     // intent request code to handle updating play services if needed.
@@ -88,6 +88,8 @@ public final class BarcodeCaptureActivity extends AppCompatActivity implements B
         setContentView(R.layout.barcode_capture);
 
         mPreview = (CameraSourcePreview) findViewById(R.id.preview);
+        mPreview.registerForCameraPermissionListener(this);
+
         mGraphicOverlay = (GraphicOverlay<BarcodeGraphic>) findViewById(R.id.graphicOverlay);
 
         // read parameters from the intent used to launch the activity.
@@ -244,6 +246,7 @@ public final class BarcodeCaptureActivity extends AppCompatActivity implements B
     protected void onDestroy() {
         super.onDestroy();
         if (mPreview != null) {
+            mPreview.unRegisterForCameraPermissionListener();
             mPreview.release();
         }
     }
@@ -366,6 +369,13 @@ public final class BarcodeCaptureActivity extends AppCompatActivity implements B
             return true;
         }
         return false;
+    }
+
+    @Override
+    public void onCameraPermissionRejectedInOSLowerThanMarshmallow() {
+        //TODO: Handling things that should be done if Camera permission is rejected by a User on devices lower than Marshmallow.
+
+        Toast.makeText(getApplicationContext(), "You have not accepted the permission", Toast.LENGTH_LONG).show();
     }
 
     private class CaptureGestureListener extends GestureDetector.SimpleOnGestureListener {
